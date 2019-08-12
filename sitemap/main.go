@@ -1,18 +1,31 @@
 package main
 
 import (
+	"encoding/xml"
 	"flag"
 	"fmt"
 	"io"
 	"log"
 	"net/http"
 	"net/url"
+	"os"
 	"strings"
 
 	"stark/gophercises/linkparser"
 )
 
+const xmlnamespace = "http://www.sitemaps.org/schemas/sitemap/0.9"
+
 type empty struct{}
+
+type loc struct {
+	Value string `xml:"loc"`
+}
+
+type urlset struct {
+	Urls  []loc  `xml:"url"`
+	Xmlns string `xml:"xmlns,attr"`
+}
 
 // Generate generates the sitemap of the given url
 func main() {
@@ -20,11 +33,25 @@ func main() {
 	maxDepth := flag.Int("depth", 3, "maximum depth for link checking")
 	flag.Parse()
 
+	// get pages
 	pages := bfs(*urlFlag, *maxDepth)
 
-	for _, page := range pages {
-		fmt.Println(page)
+	toXML := urlset{
+		Xmlns: xmlnamespace,
 	}
+
+	for _, page := range pages {
+		toXML.Urls = append(toXML.Urls, loc{page})
+	}
+
+	// print generated sitemap XML to stdout
+	fmt.Print(xml.Header)
+	enc := xml.NewEncoder(os.Stdout)
+	enc.Indent("", " ")
+	if err := enc.Encode(toXML); err != nil {
+		log.Fatal(err)
+	}
+	fmt.Println()
 }
 
 func bfs(url string, depth int) []string {
@@ -44,6 +71,10 @@ func bfs(url string, depth int) []string {
 		// set q as nq and initialise nq
 		q, nq = nq, make(map[string]empty)
 
+		if len(q) == 0 {
+			break
+		}
+
 		// for every url in current level
 		// check if it has been visited, if not then get it's urls
 		for url := range q {
@@ -53,7 +84,9 @@ func bfs(url string, depth int) []string {
 			visited[url] = empty{}
 
 			for _, link := range get(url) {
-				nq[link] = empty{}
+				if _, ok := visited[link]; !ok {
+					nq[link] = empty{}
+				}
 			}
 		}
 	}
