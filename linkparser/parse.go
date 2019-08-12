@@ -1,9 +1,7 @@
 package linkparser
 
 import (
-	"fmt"
-	"log"
-	"os"
+	"io"
 	"strings"
 
 	"golang.org/x/net/html"
@@ -15,19 +13,23 @@ type Link struct {
 	Text string
 }
 
-func f(n *html.Node) {
+func f(n *html.Node) []Link {
+	res := []Link{}
 	if n.Type == html.ElementNode && n.Data == "a" {
 		for _, a := range n.Attr {
 			if a.Key == "href" {
 				foundLink := Link{Href: a.Val, Text: getText(n)}
-				fmt.Printf("%+v\n", foundLink)
+				res = append(res, foundLink)
+				// fmt.Printf("%+v\n", foundLink)
 				break
 			}
 		}
 	}
 	for c := n.FirstChild; c != nil; c = c.NextSibling {
-		f(c)
+		res = append(res, f(c)...)
 	}
+
+	return res
 }
 
 func getText(n *html.Node) string {
@@ -37,9 +39,10 @@ func getText(n *html.Node) string {
 		} else if n.Type == html.ElementNode {
 			var ans string
 			for c := n.FirstChild; c != nil; c = c.NextSibling {
-				ans = ans + " " + strings.TrimSpace(getText(c))
+				ans += getText(c)
 			}
-			return ans
+
+			return strings.Join(strings.Fields(ans), " ")
 		}
 	}
 
@@ -47,10 +50,12 @@ func getText(n *html.Node) string {
 }
 
 // NewParser parses the provided html and finds the anchor tags
-func NewParser(r *os.File) {
+func NewParser(r io.Reader) ([]Link, error) {
 	doc, err := html.Parse(r)
 	if err != nil {
-		log.Fatal(err)
+		return nil, err
 	}
-	f(doc)
+
+	res := f(doc)
+	return res, nil
 }

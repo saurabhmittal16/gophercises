@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"log"
 	"os"
 	"stark/gophercises/linkparser"
@@ -16,5 +17,10 @@ func main() {
 		log.Fatal(err)
 	}
 
-	linkparser.NewParser(file)
+	links, err := linkparser.NewParser(file)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	fmt.Println(links)
 }
