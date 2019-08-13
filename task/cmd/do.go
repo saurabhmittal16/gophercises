@@ -1,7 +1,9 @@
 package cmd
 
 import (
+	"errors"
 	"fmt"
+	"strconv"
 
 	"github.com/spf13/cobra"
 )
@@ -14,12 +16,18 @@ var doCmd = &cobra.Command{
 	Use:   "do",
 	Short: "Mark task as done",
 	Long:  "This command is used to mark a task in your list of tasks as done",
+	Args: func(cmd *cobra.Command, args []string) error {
+		if len(args) < 1 {
+			return errors.New("Requires the index of task")
+		}
+		return nil
+	},
 	Run: func(cmd *cobra.Command, args []string) {
-		if len(args) > 0 {
-			taskInd := args[0]
-			fmt.Printf("You have completed the \"%s\" task.\n", taskInd)
+		taskInd, err := strconv.Atoi(args[0])
+		if err == nil {
+			fmt.Printf("You have completed task %d\n", taskInd)
 		} else {
-			fmt.Println("Command do requires the task index")
+			fmt.Println("Invalid arguments")
 		}
 	},
 }

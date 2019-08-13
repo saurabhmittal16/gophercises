@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/spf13/cobra"
@@ -14,12 +15,14 @@ var addCmd = &cobra.Command{
 	Use:   "add",
 	Short: "Add a task",
 	Long:  "This command is used to add a task to your list of tasks",
-	Run: func(cmd *cobra.Command, args []string) {
-		if len(args) > 0 {
-			taskAdded := args[0]
-			fmt.Printf("Added \"%s\" to your task list\n", taskAdded)
-		} else {
-			fmt.Println("Command add requires the task to be added")
+	Args: func(cmd *cobra.Command, args []string) error {
+		if len(args) < 1 {
+			return errors.New("Requires the index of task")
 		}
+		return nil
+	},
+	Run: func(cmd *cobra.Command, args []string) {
+		taskAdded := args[0]
+		fmt.Printf("Added \"%s\" to your task list\n", taskAdded)
 	},
 }
