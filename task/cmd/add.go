@@ -3,6 +3,9 @@ package cmd
 import (
 	"errors"
 	"fmt"
+	"os"
+	"stark/gophercises/task/db"
+	"strings"
 
 	"github.com/spf13/cobra"
 )
@@ -22,7 +25,14 @@ var addCmd = &cobra.Command{
 		return nil
 	},
 	Run: func(cmd *cobra.Command, args []string) {
-		taskAdded := args[0]
+		taskAdded := strings.Join(args, " ")
+		_, err := db.CreateTask(taskAdded)
+
+		if err != nil {
+			fmt.Println("Things went wrong:", err)
+			os.Exit(1)
+		}
+
 		fmt.Printf("Added \"%s\" to your task list\n", taskAdded)
 	},
 }
