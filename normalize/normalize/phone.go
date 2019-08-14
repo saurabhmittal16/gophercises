@@ -1,6 +1,7 @@
 package normalize
 
 import (
+	"regexp"
 	"strings"
 )
 
@@ -16,4 +17,11 @@ func Normalize(number string) string {
 	}
 
 	return strings.Map(filter, number)
+}
+
+// RegexNormalize accepts a number string and normalizes it
+// uses Regular Expressions
+func RegexNormalize(number string) string {
+	re := regexp.MustCompile("\\D")
+	return re.ReplaceAllString(number, "")
 }
