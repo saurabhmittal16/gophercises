@@ -9,8 +9,10 @@ import (
 	"strings"
 )
 
+var sep string
+
 func extractKeyVal(path string) (bool, string, string) {
-	arr := strings.Split(path, "_")
+	arr := strings.Split(path, sep)
 	if len(arr) == 1 {
 		return false, "", ""
 	}
@@ -32,11 +34,10 @@ func mapPaths(path string, names *map[string][]string) error {
 		valid, key, value := extractKeyVal(pt)
 		if valid {
 			use := *names
-			temp := key
-			if use[temp] == nil {
-				use[temp] = []string{value}
+			if use[key] == nil {
+				use[key] = []string{value}
 			} else {
-				use[temp] = append(use[temp], value)
+				use[key] = append(use[key], value)
 			}
 		}
 
@@ -53,22 +54,28 @@ func mapPaths(path string, names *map[string][]string) error {
 
 func main() {
 	dirPath := flag.String("dir", "./sample/", "path of the directory which needs renaming of files")
+	seperator := flag.String("sep", "_", "seperator between filename and number")
 	flag.Parse()
 
 	names := make(map[string][]string)
+	sep = *seperator
+
 	mapPaths(*dirPath, &names)
 
 	for k, v := range names {
 		tot := len(v)
 
 		for i, p := range v {
-			curr := k + "_" + p
+			oldPath := k + sep + p
+			ext := filepath.Ext(p)
 			pathSuffix := fmt.Sprintf(" (%d of %d)", i+1, tot)
-			newPath := k + pathSuffix + ".txt"
-			err := os.Rename(curr, newPath)
+			newPath := k + pathSuffix + ext
+			err := os.Rename(oldPath, newPath)
 			if err != nil {
 				log.Fatal(err)
 			}
 		}
 	}
 }
+
+// go run main.go --dir="./sample" --sep="_"
