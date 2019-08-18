@@ -10,6 +10,7 @@ import (
 	"net/url"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"stark/gophercises/quiet_hn/hn"
@@ -33,7 +34,7 @@ func main() {
 func handler(numStories int, tpl *template.Template) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
-		stories, err := getTopStories(numStories)
+		stories, err := getCachedTopStories(numStories)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 		}
@@ -47,6 +48,30 @@ func handler(numStories int, tpl *template.Template) http.HandlerFunc {
 			return
 		}
 	})
+}
+
+var (
+	cache       []item
+	cacheExpiry time.Time
+	cacheMutex  sync.Mutex
+)
+
+func getCachedTopStories(max int) ([]item, error) {
+	cacheMutex.Lock()
+	defer cacheMutex.Unlock()
+
+	if time.Now().Sub(cacheExpiry) < 0 {
+		return cache, nil
+	}
+
+	stories, err := getTopStories(max)
+	if err != nil {
+		return nil, err
+	}
+
+	cache = stories
+	cacheExpiry = time.Now().Add(1 * time.Minute)
+	return cache, nil
 }
 
 func getTopStories(max int) ([]item, error) {
@@ -69,8 +94,6 @@ func getTopStories(max int) ([]item, error) {
 }
 
 func getStories(ids []int) []item {
-	var client hn.Client
-
 	type result struct {
 		ind  int
 		item item
@@ -80,6 +103,7 @@ func getStories(ids []int) []item {
 
 	for i := 0; i < len(ids); i++ {
 		go func(index, id int) {
+			var client hn.Client
 			hnItem, err := client.GetItem(id)
 			if err != nil {
 				resultCh <- result{ind: index, err: err}
