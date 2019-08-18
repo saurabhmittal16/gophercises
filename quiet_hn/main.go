@@ -8,6 +8,7 @@ import (
 	"log"
 	"net/http"
 	"net/url"
+	"sort"
 	"strings"
 	"time"
 
@@ -32,7 +33,7 @@ func main() {
 func handler(numStories int, tpl *template.Template) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
-		stories, err := getStories(numStories)
+		stories, err := getTopStories(numStories)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 		}
@@ -48,7 +49,7 @@ func handler(numStories int, tpl *template.Template) http.HandlerFunc {
 	})
 }
 
-func getStories(max int) ([]item, error) {
+func getTopStories(max int) ([]item, error) {
 	var client hn.Client
 	ids, err := client.TopItems()
 	if err != nil {
@@ -56,21 +57,59 @@ func getStories(max int) ([]item, error) {
 	}
 
 	var stories []item
-	for _, id := range ids {
-		hnItem, err := client.GetItem(id)
-		if err != nil {
+	at := 0
+
+	for len(stories) < max {
+		need := (max - len(stories)) * 5 / 4
+		stories = append(stories, getStories(ids[at:at+need])...)
+		at += need
+	}
+
+	return stories[:max], nil
+}
+
+func getStories(ids []int) []item {
+	var client hn.Client
+
+	type result struct {
+		ind  int
+		item item
+		err  error
+	}
+	resultCh := make(chan result)
+
+	for i := 0; i < len(ids); i++ {
+		go func(index, id int) {
+			hnItem, err := client.GetItem(id)
+			if err != nil {
+				resultCh <- result{ind: index, err: err}
+			} else {
+				resultCh <- result{ind: index, item: parseHNItem(hnItem)}
+			}
+		}(i, ids[i])
+	}
+
+	var results []result
+	for i := 0; i < len(ids); i++ {
+		results = append(results, <-resultCh)
+	}
+
+	sort.Slice(results, func(i, j int) bool {
+		return results[i].ind < results[j].ind
+	})
+
+	var stories []item
+	for _, r := range results {
+		if r.err != nil {
 			continue
 		}
-		item := parseHNItem(hnItem)
-		if isStoryLink(item) {
-			stories = append(stories, item)
-			if len(stories) >= max {
-				break
-			}
+
+		if isStoryLink(r.item) {
+			stories = append(stories, r.item)
 		}
 	}
 
-	return stories, nil
+	return stories
 }
 
 func isStoryLink(item item) bool {
